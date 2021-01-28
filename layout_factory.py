@@ -19,9 +19,11 @@ EXTRA_PLOT_SIZE = int(PLOT_SIZE / 2)
 DATASET_COLOR = 'gold'
 OLS_COLOR = 'mediumblue'
 GLS_COLOR = 'limegreen'
+CO_COLOR = 'red'
 
 # TODO: opravit qq rezidua u GLS
-# TODO: refactoring inicializace malych plotu (spolecnou cast vytvoreni plotu vyclenit)
+# TODO: refactoring: inicializace malych plotu (spolecnou cast vytvoreni plotu vyclenit)
+# TODO: refactoring: extra trida pro obaleni modelu
 
 class Layout:
     def __init__(self, data_frame, x_name, y_name):
@@ -36,21 +38,26 @@ class Layout:
 
         self._OLS = None
         self._GLS = None
+        self._CO = None
         self._refresh_models()  # initialize self._OLS and self._GLS
         self._main_figure = self._init_main_figure(self._data_source, x_name, y_name)
 
         self._OLS_qq = self._init_qq(self._OLS.resid, OLS_COLOR)
         self._GLS_qq = self._init_qq(self._GLS.resid, GLS_COLOR)
+        self._CO_qq = self._init_qq(self._CO.resid, CO_COLOR)
 
         self._OLS_index = self._init_index_plot(self._OLS.resid, OLS_COLOR)
         self._GLS_index = self._init_index_plot(self._GLS.resid, GLS_COLOR)
+        self._CO_index = self._init_index_plot(self._CO.resid, CO_COLOR)
 
         self._OLS_res_res = self._init_res_res(self._OLS.resid, OLS_COLOR)
         self._GLS_res_res = self._init_res_res(self._GLS.resid, GLS_COLOR)
+        self._CO_res_res = self._init_res_res(self._CO.resid, CO_COLOR)
 
         ols_extra_graphs = column(
             row(self._OLS_qq, self._OLS_index, self._OLS_res_res),
-            row(self._GLS_qq, self._GLS_index, self._GLS_res_res)
+            row(self._GLS_qq, self._GLS_index, self._GLS_res_res),
+            row(self._CO_qq, self._CO_index, self._CO_res_res)
         )
 
         self.layout = row(self._main_figure, ols_extra_graphs)
@@ -76,6 +83,12 @@ class Layout:
             min(self._data_source.data['x']),
             max(self._data_source.data['x']))
         main_figure.line(x_gls, y_gls, line_color=GLS_COLOR)  # GLS line is in renderer 2
+        x_co, y_co = self._predict_co(
+            self._CO,
+            min(self._data_source.data['x']),
+            max(self._data_source.data['x']),
+        )
+        main_figure.line(x_co, y_co, line_color=CO_COLOR)
 
         return main_figure
 
@@ -239,10 +252,11 @@ class Layout:
 
     def _refresh_models(self):
         X, Y = self._prepare_data_for_fit()
-        X = sm.add_constant(X)
+        X_const = sm.add_constant(X)
 
-        self._OLS = self._refresh_ols(X, Y)
-        self._GLS = self._refresh_gls(X, Y)
+        self._OLS = self._refresh_ols(X_const, Y)
+        self._GLS = self._refresh_gls(X_const, Y)
+        self._CO = self._refresh_co(X, Y)  # X only, more tricky data magic in there
 
     def _prepare_data_for_fit(self):
         df = self._data_source.to_df()
@@ -263,6 +277,28 @@ class Layout:
         sigma = rho ** order
 
         return sm.GLS(Y, X, sigma=sigma).fit()
+
+    def _refresh_co(self, X, Y):
+        ols_resid = sm.OLS(Y, X).fit().resid  # rezidua OLS
+        res_fit = sm.OLS(ols_resid[1:], ols_resid[:-1]).fit()  # vypocet korelace mezi rezidui
+        self.theta = res_fit.params[0]  # autoregresni parametr
+        # TODO: theta vyclenit nebo neco
+        self.theta = 0.7078783 # TODO: !!!!!! DEL !!!!!!!!
+
+        Y_no_autoregression = []
+        for (y1, y2) in zip(Y[1:], Y[:-1]):
+            y_new = y1 - self.theta * y2
+            Y_no_autoregression.append(y_new)
+
+        X_no_autoregression = []
+        for (x1, x2) in zip(X[1:], X[:-1]):
+            x_new = x1 - self.theta * x2
+            X_no_autoregression.append(x_new)
+
+        return sm.OLS(
+            Y_no_autoregression,
+            sm.add_constant(X_no_autoregression)
+        ).fit()
 
     def _refresh_figures(self):
         x_ols_new, y_ols_new = self._predict(
@@ -294,4 +330,17 @@ class Layout:
             LINE_DETAIL)
         pred_x = sm.add_constant(pred_x_raw)
         pred_y = fitted_model.predict(pred_x)
+        return pred_x_raw, pred_y
+
+    def _predict_co(self, fitted_model, min_x, max_x):
+        pred_x_raw = np.linspace(
+            min_x,
+            max_x,
+            LINE_DETAIL)
+        [beta_0, beta_1] = fitted_model.params
+        beta_0 = beta_0 / (1 - self.theta)
+
+        pred_y = []
+        for x in pred_x_raw:
+            pred_y.append(x * beta_1 + beta_0)
         return pred_x_raw, pred_y
