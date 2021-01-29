@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
+from models import OLS_model, GLS_model, CO_model
 
 LINE_DETAIL = 5
 PLOT_SIZE = 600
@@ -21,9 +22,9 @@ OLS_COLOR = 'mediumblue'
 GLS_COLOR = 'limegreen'
 CO_COLOR = 'red'
 
-# TODO: opravit qq rezidua u GLS
 # TODO: refactoring: inicializace malych plotu (spolecnou cast vytvoreni plotu vyclenit)
 # TODO: refactoring: extra trida pro obaleni modelu
+
 
 class Layout:
     def __init__(self, data_frame, x_name, y_name):
@@ -36,23 +37,24 @@ class Layout:
         self._source_on_change_func = self._refresh_trigger
         self._data_source.on_change('data', self._source_on_change_func)
 
-        self._OLS = None
-        self._GLS = None
-        self._CO = None
-        self._refresh_models()  # initialize self._OLS and self._GLS
+        X, Y = self._get_raw_data()
+        self._OLS = OLS_model(X, Y)
+        self._GLS = GLS_model(X, Y)
+        self._CO = CO_model(X, Y)
+
         self._main_figure = self._init_main_figure(self._data_source, x_name, y_name)
 
-        self._OLS_qq = self._init_qq(self._OLS.resid, OLS_COLOR)
-        self._GLS_qq = self._init_qq(self._GLS.resid, GLS_COLOR)
-        self._CO_qq = self._init_qq(self._CO.resid, CO_COLOR)
+        self._OLS_qq = self._init_qq(self._OLS, OLS_COLOR)
+        self._GLS_qq = self._init_qq(self._GLS, GLS_COLOR)
+        self._CO_qq = self._init_qq(self._CO, CO_COLOR)
 
-        self._OLS_index = self._init_index_plot(self._OLS.resid, OLS_COLOR)
-        self._GLS_index = self._init_index_plot(self._GLS.resid, GLS_COLOR)
-        self._CO_index = self._init_index_plot(self._CO.resid, CO_COLOR)
+        self._OLS_index = self._init_index_plot(self._OLS, OLS_COLOR)
+        self._GLS_index = self._init_index_plot(self._GLS, GLS_COLOR)
+        self._CO_index = self._init_index_plot(self._CO, CO_COLOR)
 
-        self._OLS_res_res = self._init_res_res(self._OLS.resid, OLS_COLOR)
-        self._GLS_res_res = self._init_res_res(self._GLS.resid, GLS_COLOR)
-        self._CO_res_res = self._init_res_res(self._CO.resid, CO_COLOR)
+        self._OLS_res_res = self._init_res_res(self._OLS, OLS_COLOR)
+        self._GLS_res_res = self._init_res_res(self._GLS, GLS_COLOR)
+        self._CO_res_res = self._init_res_res(self._CO, CO_COLOR)
 
         ols_extra_graphs = column(
             row(self._OLS_qq, self._OLS_index, self._OLS_res_res),
@@ -61,6 +63,10 @@ class Layout:
         )
 
         self.layout = row(self._main_figure, ols_extra_graphs)
+
+    def _get_raw_data(self):
+        df = self._data_source.to_df()
+        return df['x'].tolist(), df['y'].tolist()
 
     def _init_main_figure(self, data_source, x_name, y_name):
         """Initialize figure with main data and regression lines"""
@@ -73,38 +79,42 @@ class Layout:
         point_draw_tool = PointDrawTool(renderers=[move_circle], empty_value='black', add=True)
         main_figure.add_tools(point_draw_tool)
 
-        x_ols, y_ols = self._predict(
-            self._OLS,
-            min(self._data_source.data['x']),
-            max(self._data_source.data['x']))
-        main_figure.line(x_ols, y_ols, line_color=OLS_COLOR)  # OLS line is in renderer 1
-        x_gls, y_gls = self._predict(
-            self._GLS,
-            min(self._data_source.data['x']),
-            max(self._data_source.data['x']))
-        main_figure.line(x_gls, y_gls, line_color=GLS_COLOR)  # GLS line is in renderer 2
-        x_co, y_co = self._predict_co(
-            self._CO,
+        x_ols, y_ols = self._OLS.predict(
             min(self._data_source.data['x']),
             max(self._data_source.data['x']),
+            LINE_DETAIL
+        )
+        main_figure.line(x_ols, y_ols, line_color=OLS_COLOR)  # OLS line is in renderer 1
+        x_gls, y_gls = self._OLS.predict(
+            min(self._data_source.data['x']),
+            max(self._data_source.data['x']),
+            LINE_DETAIL
+        )
+        main_figure.line(x_gls, y_gls, line_color=GLS_COLOR)  # GLS line is in renderer 2
+        x_co, y_co = self._CO.predict(
+            min(self._data_source.data['x']),
+            max(self._data_source.data['x']),
+            LINE_DETAIL
         )
         main_figure.line(x_co, y_co, line_color=CO_COLOR)
 
         return main_figure
 
-    def _init_res_res(self, resid, color):
+    def _init_res_res(self, model, color):
         res_res_plot = figure(plot_width=EXTRA_PLOT_SIZE, plot_height=EXTRA_PLOT_SIZE,
-                            x_axis_label="Rezidua r_1, ..., r_n-1", y_axis_label="Rezidua r_2, ..., r_n")
+                              x_axis_label="Rezidua r_1, ..., r_n-1", y_axis_label="Rezidua r_2, ..., r_n")
         res_res_plot.yaxis.minor_tick_line_color = None
         res_res_plot.xaxis.minor_tick_line_color = None
         res_res_plot.toolbar_location = None
 
+        resid = model.resid()
         r1 = resid[:-1].tolist()
         r1_c = sm.add_constant(r1)
         r2 = resid[1:].tolist()
 
-        xx, yy = self._predict(
-            sm.OLS(r2, r1_c).fit(),
+        xx, yy = self._instant_fit(
+            r1_c,
+            r2,
             min(r1),
             max(r1),
         )
@@ -112,63 +122,54 @@ class Layout:
         res_res_plot.line(x=xx, y=yy, color=color)
         return res_res_plot
 
-    def _init_index_plot(self, resid, color):
+    def _instant_fit(self, X_const, Y, min_x, max_x):
+        pred_x_raw = np.linspace(
+            min_x,
+            max_x,
+            LINE_DETAIL)
+        pred_x = sm.add_constant(pred_x_raw)
+
+        pred_y = sm.OLS(Y, X_const).fit().predict(pred_x)
+        return pred_x_raw, pred_y
+
+    def _init_index_plot(self, model, color):
         index_plot = figure(plot_width=EXTRA_PLOT_SIZE, plot_height=EXTRA_PLOT_SIZE,
                             x_axis_label="Indexy", y_axis_label="Rezidua")
         index_plot.yaxis.minor_tick_line_color = None
         index_plot.xaxis.minor_tick_line_color = None
         index_plot.toolbar_location = None
+
+        resid = model.resid()
         index_list = [x for x in range(len(resid))]
         index_plot.circle(x=index_list, y=resid, size=7, color=color)
         index_plot.line(x=index_list, y=resid, color=color)
         return index_plot
 
-    def _init_qq(self, resid, color):
+    def _init_qq(self, model, color):
         qq_plot = figure(plot_width=EXTRA_PLOT_SIZE, plot_height=EXTRA_PLOT_SIZE,
                          x_axis_label="Theoretical Quantiles", y_axis_label="Sample Quantiles")
         qq_plot.yaxis.minor_tick_line_color = None
         qq_plot.xaxis.minor_tick_line_color = None
         qq_plot.toolbar_location = None
-        qq_x, qq_y = self._get_qq_data(resid)
+
+        qq_x, qq_y = model.get_qq_data()
         qq_plot.circle(x=qq_x, y=qq_y, color=color)  # renderer 0
 
         x_from, x_to, y_from, y_to = self._get_qq_line(qq_x, qq_y)
         qq_plot.line(x=[x_from, x_to], y=[y_from, y_to], color='black')  # renderer 1
         return qq_plot
 
-    def _get_qq_line(self, qq_x, qq_y):
-        # qq_line gained as a line get with 0.25th and 0.75th residual points
-        # from two points are calculated line parameters y = p*x + q
-        x1, x2 = qq_x[int(len(qq_x) * 0.25)], qq_x[int(len(qq_x) * 0.75)]
-        y1, y2 = qq_y[int(len(qq_y) * 0.25)], qq_y[int(len(qq_y) * 0.75)]
-        p = (y2 - y1)/(x2 - x1)
-        q = y2 - p * x2
-
-        x_from = qq_x[0]
-        x_to = qq_x[len(qq_x) - 1]
-        y_from = p * x_from + q,
-        y_to = p * x_to + q
-        return x_from, x_to, y_from, y_to
-
-    def _get_qq_data(self, residuals):
-        df_res = pd.DataFrame(sorted(residuals), columns=['residuals'])
-        res_mean = df_res['residuals'].mean()
-        res_std = df_res['residuals'].std()
-        df_res['z_actual'] = (df_res['residuals']).map(
-            lambda x: (x - res_mean/res_std)
-        )
-        df_res['rank'] = df_res.index + 1
-        df_res['percentile'] = df_res['rank'].map(
-            lambda x: x/(len(df_res['residuals']) + 1)
-        )
-        df_res['z_theoretical'] = norm.ppf(df_res['percentile'])
-        return df_res['z_theoretical'], df_res['z_actual']
-
     def _refresh_trigger(self, attr, old, new):
         self._place_last_added_correctly()
         self._refresh_models()
         self._refresh_figures()
         self._refresh_extra_graphs()
+
+    def _refresh_models(self):
+        X, Y = self._get_raw_data()
+        self._OLS.refresh(X, Y)
+        self._GLS.refresh(X, Y)
+        self._CO.refresh(X, Y)
 
     def _place_last_added_correctly(self):
         self._data_source.remove_on_change('data', self._source_on_change_func)
@@ -187,8 +188,21 @@ class Layout:
         )
         self._data_source.on_change('data', self._source_on_change_func)
 
-    def _refresh_qq_plot(self, plot, resid):
-        qq_new_x, qq_new_y = self._get_qq_data(resid)
+    def _refresh_extra_graphs(self):
+        self._refresh_qq_plot(self._OLS_qq, self._OLS)
+        self._refresh_qq_plot(self._GLS_qq, self._GLS)
+        self._refresh_qq_plot(self._CO_qq, self._CO)
+
+        self._refresh_index_plot(self._OLS_index, self._GLS)
+        self._refresh_index_plot(self._GLS_index, self._GLS)
+        self._refresh_index_plot(self._CO_index, self._CO)
+
+        self._refresh_res_res_plot(self._OLS_res_res, self._OLS)
+        self._refresh_res_res_plot(self._GLS_res_res, self._GLS)
+        self._refresh_res_res_plot(self._CO_res_res, self._CO)
+
+    def _refresh_qq_plot(self, plot, model):
+        qq_new_x, qq_new_y = model.get_qq_data()
         plot.renderers[0].data_source.update(
             data=dict(
                 x=qq_new_x,
@@ -203,7 +217,22 @@ class Layout:
             )
         )
 
-    def _refresh_index_plot(self, plot, resid):
+    def _get_qq_line(self, qq_x, qq_y):
+        # qq_line gained as a line get with 0.25th and 0.75th residual points
+        # from two points are calculated line parameters y = p*x + q
+        x1, x2 = qq_x[int(len(qq_x) * 0.25)], qq_x[int(len(qq_x) * 0.75)]
+        y1, y2 = qq_y[int(len(qq_y) * 0.25)], qq_y[int(len(qq_y) * 0.75)]
+        p = (y2 - y1) / (x2 - x1)
+        q = y2 - p * x2
+
+        x_from = qq_x[0]
+        x_to = qq_x[len(qq_x) - 1]
+        y_from = p * x_from + q,
+        y_to = p * x_to + q
+        return x_from, x_to, y_from, y_to
+
+    def _refresh_index_plot(self, plot, model):
+        resid = model.resid()
         plot.renderers[0].data_source.update(
             data=dict(
                 x=[x for x in range(len(resid))],
@@ -217,7 +246,8 @@ class Layout:
             )
         )
 
-    def _refresh_res_res_plot(self, plot, resid):
+    def _refresh_res_res_plot(self, plot, model):
+        resid = model.resid()
         r1 = resid[:-1].tolist()
         r2 = resid[1:].tolist()
         plot.renderers[0].data_source.update(
@@ -228,8 +258,9 @@ class Layout:
         )
 
         r1_c = sm.add_constant(r1)
-        xx, yy = self._predict(
-            sm.OLS(r2, r1_c).fit(),
+        xx, yy = self._instant_fit(
+            r1_c,
+            r2,
             min(r1),
             max(r1),
         )
@@ -240,71 +271,11 @@ class Layout:
             )
         )
 
-    def _refresh_extra_graphs(self):
-        self._refresh_qq_plot(self._OLS_qq, self._OLS.resid)
-        self._refresh_qq_plot(self._GLS_qq, self._GLS.resid)
-
-        self._refresh_index_plot(self._OLS_index, self._OLS.resid)
-        self._refresh_index_plot(self._GLS_index, self._GLS.resid)
-
-        self._refresh_res_res_plot(self._OLS_res_res, self._OLS.resid)
-        self._refresh_res_res_plot(self._GLS_res_res, self._GLS.resid)
-
-    def _refresh_models(self):
-        X, Y = self._prepare_data_for_fit()
-        X_const = sm.add_constant(X)
-
-        self._OLS = self._refresh_ols(X_const, Y)
-        self._GLS = self._refresh_gls(X_const, Y)
-        self._CO = self._refresh_co(X, Y)  # X only, more tricky data magic in there
-
-    def _prepare_data_for_fit(self):
-        df = self._data_source.to_df()
-        X = df['x'].tolist()
-        Y = df['y'].tolist()
-
-        return X, Y
-
-    def _refresh_ols(self, X, Y):
-        return sm.OLS(Y, X).fit()
-
-    def _refresh_gls(self, X, Y):
-        ols_resid = sm.OLS(Y, X).fit().resid  # rezidua OLS
-        res_fit = sm.OLS(ols_resid[1:], ols_resid[:-1]).fit()  # vypocet korelace mezi rezidui
-        rho = res_fit.params  # autoregresni parametr
-
-        order = toeplitz(np.arange(len(ols_resid)))  # some magic
-        sigma = rho ** order
-
-        return sm.GLS(Y, X, sigma=sigma).fit()
-
-    def _refresh_co(self, X, Y):
-        ols_resid = sm.OLS(Y, X).fit().resid  # rezidua OLS
-        res_fit = sm.OLS(ols_resid[1:], ols_resid[:-1]).fit()  # vypocet korelace mezi rezidui
-        self.theta = res_fit.params[0]  # autoregresni parametr
-        # TODO: theta vyclenit nebo neco
-        self.theta = 0.7078783 # TODO: !!!!!! DEL !!!!!!!!
-
-        Y_no_autoregression = []
-        for (y1, y2) in zip(Y[1:], Y[:-1]):
-            y_new = y1 - self.theta * y2
-            Y_no_autoregression.append(y_new)
-
-        X_no_autoregression = []
-        for (x1, x2) in zip(X[1:], X[:-1]):
-            x_new = x1 - self.theta * x2
-            X_no_autoregression.append(x_new)
-
-        return sm.OLS(
-            Y_no_autoregression,
-            sm.add_constant(X_no_autoregression)
-        ).fit()
-
     def _refresh_figures(self):
-        x_ols_new, y_ols_new = self._predict(
-            self._OLS,
+        x_ols_new, y_ols_new = self._OLS.predict(
             min(self._data_source.data['x']),
-            max(self._data_source.data['x']))
+            max(self._data_source.data['x']),
+            LINE_DETAIL)
         self._main_figure.renderers[1].data_source.update(
             data=dict(
                 x=x_ols_new,
@@ -312,10 +283,10 @@ class Layout:
             )
         )
 
-        x_gls_new, y_gls_new = self._predict(
-            self._GLS,
+        x_gls_new, y_gls_new = self._GLS.predict(
             min(self._data_source.data['x']),
-            max(self._data_source.data['x']))
+            max(self._data_source.data['x']),
+            LINE_DETAIL)
         self._main_figure.renderers[2].data_source.update(
             data=dict(
                 x=x_gls_new,
@@ -323,24 +294,13 @@ class Layout:
             )
         )
 
-    def _predict(self, fitted_model, min_x, max_x):
-        pred_x_raw = np.linspace(
-            min_x,
-            max_x,
+        x_co_new, y_co_new = self._CO.predict(
+            min(self._data_source.data['x']),
+            max(self._data_source.data['x']),
             LINE_DETAIL)
-        pred_x = sm.add_constant(pred_x_raw)
-        pred_y = fitted_model.predict(pred_x)
-        return pred_x_raw, pred_y
-
-    def _predict_co(self, fitted_model, min_x, max_x):
-        pred_x_raw = np.linspace(
-            min_x,
-            max_x,
-            LINE_DETAIL)
-        [beta_0, beta_1] = fitted_model.params
-        beta_0 = beta_0 / (1 - self.theta)
-
-        pred_y = []
-        for x in pred_x_raw:
-            pred_y.append(x * beta_1 + beta_0)
-        return pred_x_raw, pred_y
+        self._main_figure.renderers[3].data_source.update(
+            data=dict(
+                x=x_co_new,
+                y=y_co_new
+            )
+        )
