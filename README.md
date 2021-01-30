@@ -1,7 +1,9 @@
-## PV251_viz
+## PV251\_viz
+
 Vizualization project to PV251 seminar. Vizualization of OLS, GLS regression and Cochranne-Orcutt method.
 
 ## How to install:
+Supposing you have some bash and Python3 in it
 
 Go to a directory, where you whish this a new home
 ```
