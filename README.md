@@ -20,6 +20,6 @@ pip install -r requirements.txt
 ## How to run:
 Make sure you are in folder PV251\_viz
 ```
-python3 main.py --cols Year Birds
+python3 main.py
 ```
-pls dont try any other option, there is hardwired preprocessing of this dataset
+
