@@ -44,7 +44,8 @@ def hardwired_data():
 def parse_args():
     parser = argparse.ArgumentParser(description="PV251 project - GLS regression")
     parser.add_argument('--path', nargs=1)
-    parser.add_argument('--cols', default=['x', 'y'], nargs='+', help='column names')
+    parser.add_argument('--cols', default=['x', 'y'], nargs='+',
+                        help='column names, expected two column names for x and Y')
 
     parsed = parser.parse_args(sys.argv[1:])
     return parsed.path, parsed.cols

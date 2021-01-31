@@ -22,4 +22,7 @@ Make sure you are in folder PV251\_viz
 ```
 python3 main.py
 ```
-
+You can also explore your own datasets. Check
+```
+python3 main.py --help
+```
