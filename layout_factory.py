@@ -55,17 +55,13 @@ class Layout:
         self._OLS_res_res = self._init_res_res(self._OLS, OLS_COLOR)
         self._GLS_res_res = self._init_res_res(self._GLS, GLS_COLOR)
         self._CO_res_res = self._init_res_res(self._CO, CO_COLOR)
-        #
-        # ols_extra_graphs = row(
-        #     column(self._OLS_qq, self._GLS_qq, self._CO_qq),
-        #     column(self._OLS_index, self._GLS_index, self._CO_index),
-        #     column(self._OLS_res_res, self._GLS_res_res, self._CO_res_res)
-        # )
 
-        main_text, quantiles_help, index_help, reziduals_help, plot_help, usage_help = self._get_help_widgets()
+        main_text, quantiles_help, index_help, reziduals_help, plot_help, usage_help, std_data_help \
+            = self._get_help_widgets()
         self.layout = column(
             plot_help,
             usage_help,
+            std_data_help,
             row(column(self._main_figure, main_text),
                 column(self._OLS_qq, self._GLS_qq, self._CO_qq, quantiles_help),
                 column(self._OLS_index, self._GLS_index, self._CO_index, index_help, max_width=400),
@@ -79,7 +75,7 @@ class Layout:
 
     def _init_main_figure(self, data_source, x_name, y_name):
         """Initialize figure with main data and regression lines"""
-        main_figure = figure(match_aspect=True, tools="pan,wheel_zoom,save,reset,box_zoom,lasso_select",
+        main_figure = figure(match_aspect=True, tools="pan,wheel_zoom,save,reset,box_zoom,lasso_select,box_select",
                              plot_width=PLOT_SIZE, plot_height=PLOT_SIZE, x_axis_label=x_name, y_axis_label=y_name)
 
         move_circle = main_figure.circle(source=data_source, x='x', y='y',
@@ -142,7 +138,7 @@ class Layout:
         There should NOT be any correlation apparent. That means the line should be ideally horizontal.
         """)
         plot_help = Paragraph(text="""
-        All lines represents some form of regression. Blue is Ordinary least squares. 
+        All lines in the main plot represents some form of regression. Blue is Ordinary least squares. 
         Green is Generalized least squares. Red is Cochranne-Orcutt method.
         """)
         usage_help = Paragraph(text="""
@@ -150,11 +146,16 @@ class Layout:
         or multiple points by holding shift. Then you can drag them or remove with Backspace.
         You can select more points with lasso. Then select Point draw tool and drag them or remove them.
         """)
-        return models_help, quantiles_help, index_help, reziduals_help, plot_help, usage_help
+        std_data_help = Paragraph(text="""
+        Implicit dataset describes number of birds of particular species which were observed on Hawaii.
+        For better fit, data on both axes were somehow normalized.
+        """)
+        return models_help, quantiles_help, index_help, reziduals_help, \
+               plot_help, usage_help, std_data_help
 
     def _init_res_res(self, model, color):
         res_res_plot = figure(plot_width=EXTRA_PLOT_SIZE, plot_height=EXTRA_PLOT_SIZE,
-                              x_axis_label="Rezidua r_1, ..., r_n-1", y_axis_label="Rezidua r_2, ..., r_n")
+                              x_axis_label="Reziduals r_1, ..., r_n-1", y_axis_label="Reziduals r_2, ..., r_n")
         res_res_plot.yaxis.minor_tick_line_color = None
         res_res_plot.xaxis.minor_tick_line_color = None
         res_res_plot.toolbar_location = None
@@ -186,7 +187,7 @@ class Layout:
 
     def _init_index_plot(self, model, color):
         index_plot = figure(plot_width=EXTRA_PLOT_SIZE, plot_height=EXTRA_PLOT_SIZE,
-                            x_axis_label="Indexy", y_axis_label="Rezidua")
+                            x_axis_label="Indexes", y_axis_label="Reziduals")
         index_plot.yaxis.minor_tick_line_color = None
         index_plot.xaxis.minor_tick_line_color = None
         index_plot.toolbar_location = None
