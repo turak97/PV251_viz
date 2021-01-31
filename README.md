@@ -20,6 +20,8 @@ pip install -r requirements.txt
 ## How to run:
 Make sure you are in folder PV251\_viz
 ```
+source env/bin/activate
+
 python3 main.py
 ```
 You can also explore your own datasets. Check
