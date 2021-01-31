@@ -102,20 +102,18 @@ class Layout:
 
     def _get_help_widgets(self):
         models_help = Paragraph(text="""
-        When using a linear regression model, you should be aware, that the 
-        errors should be stochastically independent and
-        the residuals of model should be normally distributed.
-        (For more detail check this article: https://en.wikipedia.org/wiki/Errors_and_residuals)
-        This preconditions often breaks something called autocorrelation.
-        That means, that the current error in measurement is affected by previous error.
-        This often happens in time series like measuring the temperature.
-        Fortunately, we have some methods how to get rid of autocorrelation.
-        We can compute the autocorrelation coefficient as a correlation between residuals[1, ..., n-1] and 
-        residuals [2, ..., n]. When this coeffecient is close to 1 or -1, we have a problem.
-        One method is GLS, which can basically take autocorrelation coefficient into account and do some magic
-        and the other is Cochranne-Orcutt method which tries to somehow modify data with this correlation 
-        coefficient and get rid of the correlation.
-        For more info you can check these:
+        When using a linear regression model, you should be aware that the errors should be stochastically independent, 
+        and the residuals of the model should be normally distributed. 
+        (For more detail check this article: https://en.wikipedia.org/wiki/Errors_and_residuals) 
+        This preconditions often breaks something called autocorrelation. 
+        That means that the current error in measurement is affected by the previous error. 
+        This often happens in time series like measuring the temperature. 
+        Fortunately, we have some methods on how to get rid of autocorrelation.	
+        We can compute the autocorrelation coefficient as a correlation between residuals[1, ..., n-1] 
+        and residuals [2, ..., n]. When this coefficient is close to 1 or -1, we have a problem. 
+        One method is GLS, which can take the autocorrelation coefficient into account and do some magic. 
+        The other is the Cochranne-Orcutt method, which tries to modify data with this correlation 
+        coefficient and eliminate the correlation. For more info you can check these:
         https://en.wikipedia.org/wiki/Autocorrelation
         https://en.wikipedia.org/wiki/Generalized_least_squares
         """)
