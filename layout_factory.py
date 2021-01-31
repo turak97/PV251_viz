@@ -1,16 +1,11 @@
 
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource
-from bokeh.models import PointDrawTool, PreText, Paragraph
+from bokeh.models import PointDrawTool, Paragraph
 from bokeh.layouts import row, column
 
 import statsmodels.api as sm
-from statsmodels.tsa.ar_model import AutoReg
-from scipy.linalg import toeplitz
-from pandas import DataFrame
 import numpy as np
-import pandas as pd
-from scipy.stats import norm
 
 from models import OLS_model, GLS_model, CO_model
 

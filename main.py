@@ -9,8 +9,6 @@ import layout_factory as lf
 
 import pandas as pd
 
-import numpy as np
-
 
 validation.silence(1002, True)  # silence the bokeh plot warnings
 
