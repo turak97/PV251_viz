@@ -131,9 +131,13 @@ class Layout:
         quantiles_help = Paragraph(text="""
         The points should be close to the line. 
         """)
-        index_help = Paragraph(text="""
-        Those should be randomly distributed around Reziduals axe. 
+        index_help_1 = Paragraph(text="""
+        Those should be randomly distributed
         """)
+        index_help_2 = Paragraph(text="""
+        around Reziduals axe. 
+        """)
+        index_help = column(index_help_1, index_help_2)
         reziduals_help = Paragraph(text="""
         There should NOT be any correlation apparent. That means the line should be ideally horizontal.
         """)
