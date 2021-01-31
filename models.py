@@ -91,8 +91,8 @@ class CO_model(Model):
         ols_resid = sm.OLS(Y, X).fit().resid  # rezidua OLS
         res_fit = sm.OLS(ols_resid[1:], ols_resid[:-1]).fit()  # vypocet korelace mezi rezidui
         self.theta = res_fit.params[0]  # autoregresni parametr
-        # TODO: theta vyclenit nebo neco
-        self.theta = 0.7078783  # TODO: !!!!!! DEL !!!!!!!!
+        # # TODO: theta vyclenit nebo neco
+        # self.theta = 0.7078783  # TODO: !!!!!! DEL !!!!!!!!
 
         Y_no_autoregression = []
         for (y1, y2) in zip(Y[1:], Y[:-1]):

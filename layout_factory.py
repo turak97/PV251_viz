@@ -1,7 +1,7 @@
 
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource
-from bokeh.models import PointDrawTool
+from bokeh.models import PointDrawTool, PreText, Paragraph
 from bokeh.layouts import row, column
 
 import statsmodels.api as sm
@@ -16,14 +16,14 @@ from models import OLS_model, GLS_model, CO_model
 
 LINE_DETAIL = 5
 PLOT_SIZE = 600
-EXTRA_PLOT_SIZE = int(PLOT_SIZE / 2)
+EXTRA_PLOT_SIZE = int(PLOT_SIZE / 3)
+CIRCLE_SIZE = 5
 DATASET_COLOR = 'gold'
 OLS_COLOR = 'mediumblue'
 GLS_COLOR = 'limegreen'
 CO_COLOR = 'red'
 
 # TODO: refactoring: inicializace malych plotu (spolecnou cast vytvoreni plotu vyclenit)
-# TODO: refactoring: extra trida pro obaleni modelu
 
 
 class Layout:
@@ -55,14 +55,23 @@ class Layout:
         self._OLS_res_res = self._init_res_res(self._OLS, OLS_COLOR)
         self._GLS_res_res = self._init_res_res(self._GLS, GLS_COLOR)
         self._CO_res_res = self._init_res_res(self._CO, CO_COLOR)
+        #
+        # ols_extra_graphs = row(
+        #     column(self._OLS_qq, self._GLS_qq, self._CO_qq),
+        #     column(self._OLS_index, self._GLS_index, self._CO_index),
+        #     column(self._OLS_res_res, self._GLS_res_res, self._CO_res_res)
+        # )
 
-        ols_extra_graphs = column(
-            row(self._OLS_qq, self._OLS_index, self._OLS_res_res),
-            row(self._GLS_qq, self._GLS_index, self._GLS_res_res),
-            row(self._CO_qq, self._CO_index, self._CO_res_res)
+        main_text, quantiles_help, index_help, reziduals_help, plot_help, usage_help = self._get_help_widgets()
+        self.layout = column(
+            plot_help,
+            usage_help,
+            row(column(self._main_figure, main_text),
+                column(self._OLS_qq, self._GLS_qq, self._CO_qq, quantiles_help),
+                column(self._OLS_index, self._GLS_index, self._CO_index, index_help, max_width=400),
+                column(self._OLS_res_res, self._GLS_res_res, self._CO_res_res, reziduals_help)
+            )
         )
-
-        self.layout = row(self._main_figure, ols_extra_graphs)
 
     def _get_raw_data(self):
         df = self._data_source.to_df()
@@ -100,6 +109,45 @@ class Layout:
 
         return main_figure
 
+    def _get_help_widgets(self):
+        models_help = Paragraph(text="""
+        When using a linear regression model, you should be aware, that the 
+        errors should be stochastically independent and
+        the residuals of model should be normally distributed.
+        (For more detail check this article: https://en.wikipedia.org/wiki/Errors_and_residuals)
+        This preconditions often breaks something called autocorrelation.
+        That means, that the current error in measurement is affected by previous error.
+        This often happens in time series like measuring the temperature.
+        Fortunately, we have some methods how to get rid of autocorrelation.
+        We can compute the autocorrelation coefficient as a correlation between residuals[1, ..., n-1] and 
+        residuals [2, ..., n]. When this coeffecient is close to 1 or -1, we have a problem.
+        One method is GLS, which can basically take autocorrelation coefficient into account and do some magic
+        and the other is Cochranne-Orcutt method which tries to somehow modify data with this correlation 
+        coefficient and get rid of the correlation.
+        For more info you can check these:
+        https://en.wikipedia.org/wiki/Autocorrelation
+        https://en.wikipedia.org/wiki/Generalized_least_squares
+        """)
+        quantiles_help = Paragraph(text="""
+        The points should be close to the line. 
+        """)
+        index_help = Paragraph(text="""
+        Those should be randomly distributed around Reziduals axe. 
+        """)
+        reziduals_help = Paragraph(text="""
+        There should NOT be any correlation apparent. That means the line should be ideally horizontal.
+        """)
+        plot_help = Paragraph(text="""
+        All lines represents some form of regression. Blue is Ordinary least squares. 
+        Green is Generalized least squares. Red is Cochranne-Orcutt method.
+        """)
+        usage_help = Paragraph(text="""
+        Select Point draw tool in the tool box and click to add point. You can also select one point
+        or multiple points by holding shift. Then you can drag them or remove with Backspace.
+        You can select more points with lasso. Then select Point draw tool and drag them or remove them.
+        """)
+        return models_help, quantiles_help, index_help, reziduals_help, plot_help, usage_help
+
     def _init_res_res(self, model, color):
         res_res_plot = figure(plot_width=EXTRA_PLOT_SIZE, plot_height=EXTRA_PLOT_SIZE,
                               x_axis_label="Rezidua r_1, ..., r_n-1", y_axis_label="Rezidua r_2, ..., r_n")
@@ -118,7 +166,7 @@ class Layout:
             min(r1),
             max(r1),
         )
-        res_res_plot.circle(x=r1, y=r2, size=7, color=color)
+        res_res_plot.circle(x=r1, y=r2, size=CIRCLE_SIZE, color=color)
         res_res_plot.line(x=xx, y=yy, color=color)
         return res_res_plot
 
@@ -141,7 +189,7 @@ class Layout:
 
         resid = model.resid()
         index_list = [x for x in range(len(resid))]
-        index_plot.circle(x=index_list, y=resid, size=7, color=color)
+        index_plot.circle(x=index_list, y=resid, size=CIRCLE_SIZE, color=color)
         index_plot.line(x=index_list, y=resid, color=color)
         return index_plot
 
