@@ -63,10 +63,6 @@ if __name__ == '__main__':
     else:
         data_frame = pd.read_csv(path)
         data_frame = data_frame[[x_name, y_name]].copy()
-    #
-    # ##### DEL AFTER; PREPROCESSING
-    # data_frame[y_name] = data_frame[y_name].apply(lambda x: np.sqrt(x))
-    # data_frame[x_name] = data_frame[x_name].apply(lambda x: x - min(data_frame[x_name]))
 
     def bkapp(doc):
 
