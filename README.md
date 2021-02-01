@@ -17,6 +17,10 @@ source env/bin/activate
 
 pip install -r requirements.txt 
 ```
+If you get error like: error: invalid command 'bdist_wheel', no worry. Wait a minute and if nothing happens,
+press ctrl^C and try pip install -r requirements.txt again. All dependencies should be now satisfied. 
+Then try run the code.
+Runs also on Ubuntu subsystem for Windows.
 ## How to run:
 Make sure you are in folder PV251\_viz
 ```
