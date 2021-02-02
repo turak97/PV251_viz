@@ -1,3 +1,4 @@
+wheel
 bokeh==2.2.3
 statsmodels==0.12.1
 
